@@ -31,7 +31,7 @@ const isAdmin = (req, res, next) => {
 
 router.get('/all', authenticateToken, isAdmin, async (req, res) => {
     try {
-        const users = await User.find({})
+        const users = await User.find().populate('course')
         console.log("users ======== ", users)
         res.json(users);
     } catch (err) {
