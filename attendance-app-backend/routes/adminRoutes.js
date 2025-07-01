@@ -1,8 +1,8 @@
 const express = require('express');
-const jwt=require('jsonwebtoken')
+const jwt = require('jsonwebtoken')
 const router = express.Router();
 const User = require('../models/User');
-const Course=require('../models/Course');
+const Course = require('../models/Course');
 const Official = require('../models/Official');
 const bcrypt = require('bcryptjs');
 
@@ -38,10 +38,20 @@ router.get('/all', authenticateToken, isAdmin, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+router.get('/allofficials', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const users = await Official.find()
+        console.log("officials ======== ", users)
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 router.get('/courses', authenticateToken, isAdmin, async (req, res) => {
     try {
-        const users = await Course.find({})
+        const users = await Course.find().populate('principal').populate('hod')
+        console.log("courses ==" +users)
         res.json(users);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -62,16 +72,40 @@ router.post('/courses', authenticateToken, isAdmin, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-router.post('/registerOfficial',async(req,res)=>{
-    const {username,password,role} = req.body;
-    const hasedPassword =await bcrypt.hashSync(password, 10);
+// Assign Principal and HOD to a Course
+router.put('/courses/:id/assign', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { principalId, hodId } = req.body;
+
+        const course = await Course.findById(id);
+        if (!course) {
+            return res.status(404).json({ message: 'Course not found' });
+        }
+
+        course.principal = principalId || null;
+        course.hod = hodId || null;
+
+        await course.save();
+        const updatedCourse = await Course.findById(id).populate('principal').populate('hod');
+
+        res.json({ message: 'Course updated', course: updatedCourse });
+    } catch (err) {
+        console.error('Assign error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/registerOfficial', async (req, res) => {
+    const { username, password, role } = req.body;
+    const hasedPassword = await bcrypt.hashSync(password, 10);
     const official = new Official({
         username,
-        password:hasedPassword,
+        password: hasedPassword,
         role
     });
     official.save()
-    .then(() => res.json({ message: 'Official registered' }))
-    .catch(err => res.status(500).json({ error: err.message }));
+        .then(() => res.json({ message: 'Official registered' }))
+        .catch(err => res.status(500).json({ error: err.message }));
 })
 module.exports = router;
